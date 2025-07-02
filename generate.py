@@ -1,55 +1,65 @@
-from transformers import AutoTokenizer
-from models.decoder import TinyTransformerDecoder
-from models.encoder import ViTEncoder
-from utils import generate_square_subsequent_mask
 import torch
-import torch.nn.functional as F
 from PIL import Image
+from torchvision import transforms
+from transformers import AutoTokenizer
 
-# === 1. Load tokenizer ===
+from models.encoder import ViTEncoder
+from models.decoder import TransformerDecoder
+
+# === 1. Setup ===
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# === 2. Load tokenizer ===
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-# === 2. Load decoder ===
-decoder = TinyTransformerDecoder(vocab_size=tokenizer.vocab_size)
-decoder.load_state_dict(torch.load("./artifacts/decoder.pth", map_location='cpu'))
+# === 3. Load encoder and decoder ===
+encoder = ViTEncoder().to(device)
+encoder.load_state_dict(torch.load("encoder.pth"))
+encoder.eval()
+
+decoder = TransformerDecoder(
+    num_layers=6,
+    d_model=768,
+    nhead=8,
+    dim_feedforward=2048,
+    vocab_size=tokenizer.vocab_size
+).to(device)
+decoder.load_state_dict(torch.load("decoder.pth"))
 decoder.eval()
 
-# === 3. Load encoder ===
-encoder = ViTEncoder()
+# === 4. Image preprocessing ===
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5]),
+])
 
-# === 4. Process test image ===
-image = Image.open("./images/manOnBike.png").convert("RGB")
-image_tensor = encoder.processor(images=image, return_tensors="pt")['pixel_values']
-memory = encoder.encode(image_tensor)
+# === 5. Load image ===
+image = Image.open("test_image.jpg").convert("RGB")
+image_tensor = transform(image).unsqueeze(0).to(device)  # [1, C, H, W]
 
-# === 5. Generate ===
-from utils import generate_square_subsequent_mask
+# === 6. Encode ===
+with torch.no_grad():
+    features = encoder(image_tensor)  # [batch_size, d_model]
+    features = features.unsqueeze(0)  # [1, batch_size, d_model]
 
-def generate(decoder, memory, tokenizer, max_len=20):
-    device = 'cpu'
-    decoder.eval()
-    memory = memory.to(device)
-    tgt_input_ids = torch.tensor([[tokenizer.cls_token_id]], device=device)
+# === 7. Greedy decode ===
+max_len = 50
+generated = [tokenizer.cls_token_id]  # e.g., use [CLS] as BOS
 
-    for step in range(max_len):
-        tgt_seq_len = tgt_input_ids.size(1)
-        tgt_mask = generate_square_subsequent_mask(tgt_seq_len).to(device)
+for _ in range(max_len):
+    input_ids = torch.tensor(generated).unsqueeze(0).to(device)  # [1, seq_len]
 
-        logits = decoder(tgt_input_ids, memory, tgt_mask=tgt_mask)
-        next_token_logits = logits[:, -1, :]
-        probs = F.softmax(next_token_logits, dim=-1)
-        next_token = torch.multinomial(probs, num_samples=1)
-        tgt_input_ids = torch.cat([tgt_input_ids, next_token], dim=1)
+    with torch.no_grad():
+        outputs = decoder(input_ids, features)  # [1, seq_len, vocab_size]
 
-        # if tokenizer.sep_token_id and next_token.item() == tokenizer.sep_token_id:
-        #     break
-        if tokenizer.sep_token_id is not None and next_token.item() == tokenizer.sep_token_id:
-            break
+    next_token_logits = outputs[0, -1, :]  # last token logits
+    next_token_id = torch.argmax(next_token_logits).item()
 
-    return tgt_input_ids
+    if next_token_id == tokenizer.sep_token_id:
+        break
 
-generated_ids = generate(decoder, memory, tokenizer)
-print("Generated IDs:", generated_ids)
+    generated.append(next_token_id)
 
-text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
-print("Generated text:", text)
+caption = tokenizer.decode(generated, skip_special_tokens=True)
+print("Generated Caption:", caption)

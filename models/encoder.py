@@ -1,20 +1,25 @@
 # models/encoder.py
 from transformers import ViTModel, ViTImageProcessor
+import torch.nn as nn
 import torch
+from PIL import Image
 
-class ViTEncoder:
-    def __init__(self, model_name='google/vit-base-patch16-224-in21k'):
-        from PIL import Image
-        import torch
+from torchvision.models import vit_b_16, ViT_B_16_Weights   
+class ViTEncoder(nn.Module):
+    def __init__(self):
+        super(ViTEncoder, self).__init__()
 
-        self.model = ViTModel.from_pretrained(model_name)
-        self.processor = ViTImageProcessor.from_pretrained(model_name)
-        self.model.eval()
-    
-    def encode(self, image_tensor):
+        # Load the pre-trained ViT backbone
+        weights = ViT_B_16_Weights.DEFAULT
+        self.vit = vit_b_16(weights=weights)
+
+        # Remove the classification head so it outputs features
+        self.vit.heads = nn.Identity()
+
+    def forward(self, x):
         """
-        image_tensor: shape [batch_size, 3, H, W]
+        x: Tensor of shape (batch_size, 3, H, W)
+        returns: features tensor
         """
-        with torch.no_grad():
-            outputs = self.model(pixel_values=image_tensor)
-        return outputs.last_hidden_state
+        features = self.vit(x)  # shape: (batch_size, hidden_dim)
+        return features

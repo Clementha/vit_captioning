@@ -4,32 +4,64 @@ from torch.utils.data import Dataset
 from PIL import Image
 from transformers import ViTImageProcessor
 
-class CaptionDataset(Dataset):
-    def __init__(self, samples, tokenizer):
-        """
-        samples: list of (image_path, caption)
-        """
-        self.samples = samples
-        self.tokenizer = tokenizer
-        self.processor = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
-        # ✅ This line sets up the image -> tensor preprocessor
+from datasets import load_dataset
+from torchvision import transforms
+from transformers import AutoTokenizer
+import torch
+
+class Flickr30kDataset(torch.utils.data.Dataset):
+    def __init__(self, split="test"):
+
+        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        self.max_length = 50  # Adjust as needed
+        # Load from cache if exists, else download
+        self.dataset = load_dataset("nlphuji/flickr30k", split="test")
+
+        # Define your image transforms (ViT/CLIP style)
+        self.transform = transforms.Compose([
+            transforms.Resize((224, 224)),  # adjust for your model
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5]),  # example
+        ])
 
     def __len__(self):
-        return len(self.samples)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
-        image_path, caption = self.samples[idx]
-        image = Image.open(image_path).convert("RGB")
+        item = self.dataset[idx]
 
-        # ✅ Convert PIL image to tensor
-        image_tensor = self.processor(images=image, return_tensors="pt")['pixel_values'].squeeze(0)
+        # Transform image
+        image = item['image']
+        image = self.transform(image)
 
-        # ✅ Tokenize caption
-        #input_ids = self.tokenizer.encode(caption, return_tensors="pt").squeeze(0)
-        input_ids = self.tokenizer.encode(
+        # Grab caption
+        caption = item['caption']  # Should be just a string
+        if isinstance(caption, list):
+            caption = caption[0]  # or random.choice(caption)
+        # Tokenize: convert to token IDs
+        tokens = self.tokenizer(
             caption,
-            add_special_tokens=True,   # ✅ adds [CLS] and [SEP]
-            return_tensors="pt"
-        ).squeeze(0)
+            padding='max_length',
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors='pt'
+        )
 
-        return image_tensor, input_ids
+        # print("Caption:", caption)
+        # print("tokens.input_ids.shape:", tokens.input_ids.shape)
+
+        input_ids = tokens.input_ids.squeeze(0)  # (max_length,)
+        # Always ensure tensor is long!
+        input_ids = input_ids.long()
+        #print("Input IDs dtype:", input_ids.dtype)
+
+        return image, input_ids
+
+    def save_to_disk(self, path="data/my_flickr30k"):
+        self.dataset.save_to_disk(path)
+
+
+if __name__ == "__main__":
+        ds = Flickr30kDataset()
+        ds.save_to_disk("data/my_flickr30k")
+        print("Saved Flickr30k to data/my_flickr30k")
