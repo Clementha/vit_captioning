@@ -6,19 +6,25 @@ from transformers import ViTImageProcessor, AutoTokenizer
 from models.encoder import ViTEncoder
 from models.decoder import TransformerDecoder  # your Decoder must have a generate() method
 
+
+# Setup device
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 # --------------------------------------------
 # 1️⃣ Load encoder, decoder, tokenizer
 # --------------------------------------------
-encoder = ViTEncoder()
+encoder = ViTEncoder().to(device)
 decoder = TransformerDecoder(
     vocab_size=30522,   # For example, BERT vocab size if you use bert-base-uncased
     hidden_dim=512      # Match your model's hidden_dim
-)
+).to(device)
 tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
-# Load trained weights if you have them
-# encoder.load_state_dict(torch.load("path_to_encoder.pth"))
-# decoder.load_state_dict(torch.load("path_to_decoder.pth"))
+# Load checkpoint
+checkpoint = torch.load('./artifacts/vit_captioning.pth', map_location=device)
+
+encoder.load_state_dict(checkpoint['encoder_state_dict'])
+decoder.load_state_dict(checkpoint['decoder_state_dict'])
 
 encoder.eval()
 decoder.eval()
@@ -31,9 +37,9 @@ processor = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k
 # --------------------------------------------
 # 3️⃣ Load and preprocess your image
 # --------------------------------------------
-image = Image.open("./images/dog.png").convert("RGB")
+image = Image.open("./images/debug_image.jpg").convert("RGB")
 encoding = processor(images=image, return_tensors='pt')
-pixel_values = encoding['pixel_values']
+pixel_values = encoding['pixel_values'].to(device)
 
 # --------------------------------------------
 # 4️⃣ Pass through encoder -> decoder.generate()

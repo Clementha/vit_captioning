@@ -79,7 +79,7 @@ def trainFull():
     # ----------------------------
     # 4. Loss and optimizer
     # ----------------------------
-    criterion = torch.nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)  # adjust padding index if using tokenizer
+    criterion = torch.nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id, label_smoothing=0.1)  # adjust padding index if using tokenizer
     optimizer = torch.optim.Adam(decoder.parameters(), lr=LEARNING_RATE)
     # optimizer = torch.optim.Adam([
     #     {"params": encoder.parameters(), "lr": 2e-5},
