@@ -3,3 +3,4 @@ __pycache__/
 artifacts/
 data/
 wandb/
+images/debug_image.jpg

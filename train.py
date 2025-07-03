@@ -6,6 +6,7 @@ from models.encoder import ViTEncoder
 from models.decoder import TransformerDecoder
 from utils import generate_square_subsequent_mask
 import wandb
+import sys
 
 # Setup device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -52,6 +53,8 @@ def trainFull():
         num_workers=NUM_WORKERS,
         pin_memory=True
     )
+    # Debug block goes here
+    #sys.exit(0)
 
     # ----------------------------
     # 3. Initialize model
@@ -105,17 +108,16 @@ def trainFull():
             bar_format='{desc} {percentage:3.0f}%|{bar:10}| {n_fmt}/{total_fmt}'
         )
 
-        for batch_idx, (images, input_ids) in progress_bar:
+        for batch_idx, (images, input_ids, attention_mask) in progress_bar:
             images = images.to(device)
             input_ids = input_ids.to(device)
+            attention_mask = attention_mask.to(device)
 
             # Forward pass
-            features = encoder(images)
-            features = features.unsqueeze(0)  #Now: [1, batch_size, d_model]
+            encoder_outputs = encoder(images)  # [batch_size, encoder_dim]
+            #encoder_outputs = encoder_outputs  # (keep as [batch_size, encoder_dim])
 
-            #print("Encoder features mean:", features.mean().item(), "std:", features.std().item())
-
-            outputs = decoder(input_ids, features)
+            outputs = decoder(input_ids, encoder_outputs, tgt_attention_mask=attention_mask)
 
             # Shift so inputs predict next token
             targets = input_ids[:, 1:]        # [batch_size, seq_len-1]
@@ -123,22 +125,32 @@ def trainFull():
 
             loss = criterion(outputs.reshape(-1, outputs.size(-1)), targets.reshape(-1))
 
-
             # Backprop and optimize
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item()
-            # ✅ Keep progress tidy
+
             if batch_idx % 10 == 0:
                 progress_bar.set_postfix({
                     "epoch": epoch+1,
                     "batch": batch_idx,
                     "loss": f"{loss.item():.4f}"
                 })
-
             wandb.log({"batch_loss": loss.item()})
+
+            if batch_idx % 100 == 0:
+                logits = outputs[0]  # first sample in batch
+                pred_ids = logits.argmax(dim=-1).tolist()
+                generated_caption = tokenizer.decode(pred_ids, skip_special_tokens=True)
+
+                target_ids = input_ids[0].tolist()
+                target_caption = tokenizer.decode(target_ids, skip_special_tokens=True)
+
+                print(f"\n[Batch {batch_idx}] Truth:     {target_caption}\\n")
+                print(f"[Batch {batch_idx}] Generated: {generated_caption}")
+
 
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch [{epoch+1}/{NUM_EPOCHS}] Average Loss: {avg_loss:.4f}")
@@ -157,3 +169,5 @@ def trainFull():
 
 if __name__ == "__main__":
     trainFull()
+
+
