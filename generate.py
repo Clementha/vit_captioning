@@ -5,10 +5,22 @@ from PIL import Image
 from transformers import ViTImageProcessor, AutoTokenizer
 from models.encoder import ViTEncoder
 from models.decoder import TransformerDecoder  # your Decoder must have a generate() method
-
+import argparse # Import the argparse module
 
 # Setup device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# --------------------------------------------
+# 0️⃣ Parse command line arguments
+# --------------------------------------------
+parser = argparse.ArgumentParser(description="Generate a caption for an image.")
+# Changed to a positional argument: removed '--' and 'required=True'
+parser.add_argument(
+    'image_path', # No '--' prefix makes it a positional argument
+    type=str,
+    help='Path to the input image file (e.g., ./images/girl.png)'
+)
+args = parser.parse_args()
 
 # --------------------------------------------
 # 1️⃣ Load encoder, decoder, tokenizer
@@ -37,7 +49,7 @@ processor = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k
 # --------------------------------------------
 # 3️⃣ Load and preprocess your image
 # --------------------------------------------
-image = Image.open("./images/debug_image.jpg").convert("RGB")
+image = Image.open(args.image_path).convert("RGB")
 encoding = processor(images=image, return_tensors='pt')
 pixel_values = encoding['pixel_values'].to(device)
 
