@@ -9,7 +9,15 @@ import wandb
 import sys
 
 # Setup device
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("Using NVIDIA CUDA GPU acceleration.")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+    print("Using Apple MPS GPU acceleration.")
+else:
+    device = torch.device("cpu")
+    print("No GPU found, falling back to CPU.")
 
 # We use only the vocab and tokenizer from a pretrained model
 from transformers import AutoTokenizer
