@@ -10,10 +10,10 @@ from transformers import AutoTokenizer
 import torch
 
 class Flickr30kDataset(torch.utils.data.Dataset):
-    def __init__(self, split="test"):
+    def __init__(self, max_length=50):
 
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-        self.max_length = 50  # Adjust as needed
+        self.max_length = max_length  # Adjust as needed
         # Load from cache if exists, else download
         self.dataset = load_dataset("nlphuji/flickr30k", split="test")
 
@@ -21,7 +21,9 @@ class Flickr30kDataset(torch.utils.data.Dataset):
         self.transform = transforms.Compose([
             transforms.Resize((224, 224)),  # adjust for your model
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5]),  # example
+            #transforms.Normalize(mean=[0.5], std=[0.5]),  # example
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                                 std=[0.229, 0.224, 0.225])
         ])
 
     def __len__(self):
@@ -41,6 +43,7 @@ class Flickr30kDataset(torch.utils.data.Dataset):
         # Tokenize: convert to token IDs
         tokens = self.tokenizer(
             caption,
+            add_special_tokens=True, 
             padding='max_length',
             truncation=True,
             max_length=self.max_length,
@@ -53,7 +56,6 @@ class Flickr30kDataset(torch.utils.data.Dataset):
         input_ids = tokens.input_ids.squeeze(0)  # (max_length,)
         # Always ensure tensor is long!
         input_ids = input_ids.long()
-        #print("Input IDs dtype:", input_ids.dtype)
 
         return image, input_ids
 

@@ -7,8 +7,6 @@ from models.decoder import TransformerDecoder
 from utils import generate_square_subsequent_mask
 import wandb
 
-
-
 # Setup device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -22,30 +20,37 @@ def trainFull():
     # ----------------------------
     # 2. Prepare dataset & dataloader
     # ----------------------------
-    train_dataset = Flickr30kDataset(split="train")
 
-    # Optional: save to disk once if you want
-    # train_dataset.save_to_disk("data/my_flickr30k")
+
+    # Values defined in wandb is used throughout the training
+    wandb.init(
+        project="vit_captioning",  
+        name="baseline-run",       
+        config={
+            "epochs": 5,
+            "batch_size": 32,
+            "max_length": 50,
+            "learning_rate": 1e-4,
+            "num_workers": 4,
+            "model": "ViTEncoder + TransformerDecoder",
+        }
+    )
+
+    BATCH_SIZE = wandb.config.batch_size
+    NUM_EPOCHS = wandb.config.epochs
+    NUM_WORKERS = wandb.config.num_workers
+    MAX_LENGTH = wandb.config.max_length
+    LEARNING_RATE = wandb.config.learning_rate
+
+    train_dataset = Flickr30kDataset(MAX_LENGTH)
 
     # Standard PyTorch DataLoader
     train_loader = DataLoader(
         train_dataset,
-        batch_size=32,
+        batch_size=BATCH_SIZE,
         shuffle=True,
-        num_workers=4,
+        num_workers=NUM_WORKERS,
         pin_memory=True
-    )
-
-    wandb.init(
-        project="vit_captioning",  # Replace with your project name
-        name="baseline-run",       # Optional: unique run name
-        config={
-            "epochs": 10,
-            "batch_size": 32,
-            "max_length": 50,
-            "learning_rate": 1e-4,
-            "model": "ViTEncoder + TransformerDecoder",
-        }
     )
 
     # ----------------------------
@@ -54,36 +59,61 @@ def trainFull():
     encoder = ViTEncoder().to(device)
     decoder = TransformerDecoder(vocab_size=vocab_size).to(device)
 
+    # === Freeze ViT encoder ===
+    for param in encoder.parameters():
+        param.requires_grad = False
+
+    print("Encoder frozen:", all(not p.requires_grad for p in encoder.parameters()))
+
+
+    # ✅ Good sanity check
+    print("Decoder training params:", sum(p.numel() for p in decoder.parameters() if p.requires_grad))
+    print("Encoder training params:", sum(p.numel() for p in encoder.parameters() if p.requires_grad))
+
     # Example: Combine encoder-decoder params
-    params = list(encoder.parameters()) + list(decoder.parameters())
+    #params = list(encoder.parameters()) + list(decoder.parameters())
 
     # ----------------------------
     # 4. Loss and optimizer
     # ----------------------------
     criterion = torch.nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)  # adjust padding index if using tokenizer
-    optimizer = torch.optim.Adam(params, lr=1e-4)
+    optimizer = torch.optim.Adam(decoder.parameters(), lr=LEARNING_RATE)
+    # optimizer = torch.optim.Adam([
+    #     {"params": encoder.parameters(), "lr": 2e-5},
+    #     {"params": decoder.parameters(), "lr": 1e-4}
+    # ])
 
     # ----------------------------
     # 5. Training loop
     # ----------------------------
-    num_epochs = 10
     
-    for epoch in range(num_epochs):
+    for epoch in range(NUM_EPOCHS):
         encoder.train()
         decoder.train()
 
-        total_loss = 0
-        progress_bar = tqdm(enumerate(train_loader), total=len(train_loader))
+        # print("Encoder training mode:", encoder.training)
+        # print("Decoder training mode:", decoder.training)
 
-        for batch_idx, (images, input_ids) in enumerate(tqdm(train_loader)):
+        # for name, param in encoder.named_parameters():
+        #     print(f"{name} requires_grad: {param.requires_grad}")
+
+        total_loss = 0
+        progress_bar = tqdm(
+            enumerate(train_loader),
+            total=len(train_loader),
+            desc=f"Epoch {epoch+1}",
+            bar_format='{desc} {percentage:3.0f}%|{bar:10}| {n_fmt}/{total_fmt}'
+        )
+
+        for batch_idx, (images, input_ids) in progress_bar:
             images = images.to(device)
             input_ids = input_ids.to(device)
 
             # Forward pass
             features = encoder(images)
-            # print("features shape:", features.shape)
-            # print("pos_embedding shape:", decoder.pos_embedding.shape)
             features = features.unsqueeze(0)  #Now: [1, batch_size, d_model]
+
+            #print("Encoder features mean:", features.mean().item(), "std:", features.std().item())
 
             outputs = decoder(input_ids, features)
 
@@ -111,7 +141,7 @@ def trainFull():
             wandb.log({"batch_loss": loss.item()})
 
         avg_loss = total_loss / len(train_loader)
-        print(f"Epoch [{epoch+1}/{num_epochs}] Average Loss: {avg_loss:.4f}")
+        print(f"Epoch [{epoch+1}/{NUM_EPOCHS}] Average Loss: {avg_loss:.4f}")
         wandb.log({"epoch_loss": avg_loss})
 
     wandb.finish()
@@ -123,7 +153,7 @@ def trainFull():
         'encoder_state_dict': encoder.state_dict(),
         'decoder_state_dict': decoder.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
-    }, "artifacts/vit_captioning.pth")
+    }, "./artifacts/vit_captioning.pth")
 
 if __name__ == "__main__":
     trainFull()
