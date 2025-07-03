@@ -27,7 +27,7 @@ def trainFull():
         project="vit_captioning",  
         name="baseline-run",       
         config={
-            "epochs": 5,
+            "epochs": 10,
             "batch_size": 32,
             "max_length": 50,
             "learning_rate": 1e-4,

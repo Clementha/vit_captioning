@@ -46,7 +46,7 @@ print("Loaded decoder weights.")
 # -------------------------------
 # 5. Load and preprocess test image
 # -------------------------------
-image = Image.open("./images/Picnic.png").convert("RGB")
+image = Image.open("./images/manOnBike.png").convert("RGB")
 image = transform(image).unsqueeze(0).to(device)  # shape: (1, 3, H, W)
 
 # -------------------------------
