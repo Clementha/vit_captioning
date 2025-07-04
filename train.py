@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from models.encoder import ViTEncoder
 from models.decoder import TransformerDecoder
 from utils import generate_square_subsequent_mask
+from bert_score import score as bertscore 
 import wandb
 import sys
 
@@ -26,17 +27,12 @@ vocab_size = tokenizer.vocab_size
 
 from dataset import Flickr30kDataset
 def trainFull():
-    # ----------------------------
-    # 2. Prepare dataset & dataloader
-    # ----------------------------
 
-
-    # Values defined in wandb is used throughout the training
     wandb.init(
         project="vit_captioning",  
         name="baseline-run",       
         config={
-            "epochs": 20,
+            "epochs": 40,
             "batch_size": 32,
             "max_length": 50,
             "learning_rate": 1e-4,
@@ -50,7 +46,14 @@ def trainFull():
     NUM_WORKERS = wandb.config.num_workers
     MAX_LENGTH = wandb.config.max_length
     LEARNING_RATE = wandb.config.learning_rate
+    ENCODER_LR = LEARNING_RATE * 0.1  # Example: lower LR for encoder
+    UNFREEZE_EPOCH = int(NUM_EPOCHS * 0.3)  # Example: unfreeze encoder after 30% of epochs
 
+    # ----------------------------
+    # 2. Prepare dataset & dataloader
+    # ----------------------------
+
+    # Values defined in wandb is used throughout the training
     train_dataset = Flickr30kDataset(MAX_LENGTH)
 
     # Standard PyTorch DataLoader
@@ -89,16 +92,23 @@ def trainFull():
     # ----------------------------
     criterion = torch.nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id, label_smoothing=0.1)  # adjust padding index if using tokenizer
     optimizer = torch.optim.Adam(decoder.parameters(), lr=LEARNING_RATE)
-    # optimizer = torch.optim.Adam([
-    #     {"params": encoder.parameters(), "lr": 2e-5},
-    #     {"params": decoder.parameters(), "lr": 1e-4}
-    # ])
 
     # ----------------------------
     # 5. Training loop
     # ----------------------------
     
     for epoch in range(NUM_EPOCHS):
+
+        if epoch == UNFREEZE_EPOCH:
+            print(f"Unfreezing encoder at epoch {epoch+1}")
+            for param in encoder.parameters():
+                param.requires_grad = True
+            # Recreate optimizer with both param groups
+            optimizer = torch.optim.Adam([
+                {"params": encoder.parameters(), "lr": ENCODER_LR},
+                {"params": decoder.parameters(), "lr": LEARNING_RATE}
+            ])
+
         encoder.train()
         decoder.train()
 
@@ -113,7 +123,7 @@ def trainFull():
             enumerate(train_loader),
             total=len(train_loader),
             desc=f"Epoch {epoch+1}",
-            bar_format='{desc} {percentage:3.0f}%|{bar:10}| {n_fmt}/{total_fmt}'
+            bar_format='{desc} {percentage:3.0f}%|{bar:20}| {n_fmt}/{total_fmt}'
         )
 
         for batch_idx, (images, input_ids, attention_mask) in progress_bar:
@@ -148,7 +158,7 @@ def trainFull():
                 })
             wandb.log({"batch_loss": loss.item()})
 
-            if batch_idx % 100 == 0:
+            if batch_idx % 200 == 0:
                 logits = outputs[0]  # first sample in batch
                 pred_ids = logits.argmax(dim=-1).tolist()
                 generated_caption = tokenizer.decode(pred_ids, skip_special_tokens=True)
@@ -156,8 +166,19 @@ def trainFull():
                 target_ids = input_ids[0].tolist()
                 target_caption = tokenizer.decode(target_ids, skip_special_tokens=True)
 
-                print(f"\n[Batch {batch_idx}] Truth:     {target_caption}\\n")
+                print(f"\n[Batch {batch_idx}] Truth:     {target_caption}")
                 print(f"[Batch {batch_idx}] Generated: {generated_caption}")
+
+                    # ✅ Compute BERTScore
+                P, R, F1 = bertscore(
+                    [generated_caption],
+                    [target_caption],
+                    lang="en",
+                    verbose=False
+                )
+                bert_f1 = F1[0].item()
+                print(f"BERTScore F1: {bert_f1:.4f}")
+                wandb.log({"bertscore_f1": bert_f1})
 
 
         avg_loss = total_loss / len(train_loader)
