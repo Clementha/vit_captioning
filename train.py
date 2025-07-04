@@ -1,8 +1,11 @@
 # train.py
+from transformers import logging
+logging.set_verbosity_error()
+
 import torch
 from tqdm import tqdm  
 from torch.utils.data import DataLoader
-from models.encoder import ViTEncoder
+from models.encoder import ViTEncoder, CLIPEncoder
 from models.decoder import TransformerDecoder
 from utils import generate_square_subsequent_mask
 from bert_score import score as bertscore 
@@ -32,29 +35,34 @@ def trainFull():
         project="vit_captioning",  
         name="baseline-run",       
         config={
-            "epochs": 40,
+            "model": "ViTEncoder",  # ViTEncoder or CLIPEncoder
+            "epochs": 5,
             "batch_size": 32,
             "max_length": 50,
             "learning_rate": 1e-4,
             "num_workers": 4,
-            "model": "ViTEncoder + TransformerDecoder",
+            "unfreeze_pct": 1, # Best practice: unfreeze encoder after 30% of epochs
+            "encoder_lr_pct": 0.1  # lower LR for encoder after unfreezing
         }
     )
 
-    BATCH_SIZE = wandb.config.batch_size
-    NUM_EPOCHS = wandb.config.epochs
-    NUM_WORKERS = wandb.config.num_workers
-    MAX_LENGTH = wandb.config.max_length
-    LEARNING_RATE = wandb.config.learning_rate
-    ENCODER_LR = LEARNING_RATE * 0.1  # Example: lower LR for encoder
-    UNFREEZE_EPOCH = int(NUM_EPOCHS * 0.3)  # Example: unfreeze encoder after 30% of epochs
+    config = wandb.config
+
+    ENCODER_MODEL = config.model
+    BATCH_SIZE = config.batch_size
+    NUM_EPOCHS = config.epochs
+    NUM_WORKERS = config.num_workers
+    MAX_LENGTH = config.max_length
+    LEARNING_RATE = config.learning_rate
+    ENCODER_LR = LEARNING_RATE * config.encoder_lr_pct  # Example: lower LR for encoder
+    UNFREEZE_EPOCH = int(NUM_EPOCHS * config.unfreeze_pct)  
 
     # ----------------------------
     # 2. Prepare dataset & dataloader
     # ----------------------------
 
     # Values defined in wandb is used throughout the training
-    train_dataset = Flickr30kDataset(MAX_LENGTH)
+    train_dataset = Flickr30kDataset( max_length=MAX_LENGTH, model=ENCODER_MODEL)
 
     # Standard PyTorch DataLoader
     train_loader = DataLoader(
@@ -70,8 +78,17 @@ def trainFull():
     # ----------------------------
     # 3. Initialize model
     # ----------------------------
-    encoder = ViTEncoder().to(device)
-    decoder = TransformerDecoder(vocab_size=vocab_size).to(device)
+
+    if config.model == "ViTEncoder":
+        encoder = ViTEncoder().to(device)
+        encoder_output_dim = 768  # ViT base model output dimension
+    elif config.model == "CLIPEncoder":
+        encoder = CLIPEncoder().to(device)
+        encoder_output_dim = 512
+    else:
+        raise ValueError("Unknown encoder model")
+    
+    decoder = TransformerDecoder(vocab_size=vocab_size, hidden_dim=encoder_output_dim, encoder_dim=encoder_output_dim).to(device)
 
     # === Freeze ViT encoder ===
     for param in encoder.parameters():
@@ -190,12 +207,16 @@ def trainFull():
     # ----------------------------
     # 6. Save checkpoints (optional)
     # ----------------------------
+    filename = f"./artifacts/{ENCODER_MODEL}_{NUM_EPOCHS}epochs_unfreeze{UNFREEZE_EPOCH}.pth"
+
     torch.save({
         'encoder_state_dict': encoder.state_dict(),
         'decoder_state_dict': decoder.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
-    }, "./artifacts/vit_captioning.pth")
+    }, filename)
 
+
+    print(f"✅ Model saved to: {filename}")
 if __name__ == "__main__":
     trainFull()
 

@@ -2,21 +2,32 @@
 
 from torch.utils.data import Dataset
 from PIL import Image
-from transformers import ViTImageProcessor
+from transformers import ViTImageProcessor, CLIPProcessor
 
 from datasets import load_dataset
 #from torchvision import transforms
 from transformers import AutoTokenizer
 import torch
+from wandb import config
 
 class Flickr30kDataset(torch.utils.data.Dataset):
-    def __init__(self, max_length=50):
+    def __init__(self, max_length=50, model="None"):
+
+        # Debug
+        print(f"Clement model: {model}")
 
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         self.max_length = max_length  # Adjust as needed
         # Load from cache if exists, else download
         self.dataset = load_dataset("nlphuji/flickr30k", split="test")
-        self.processor = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
+
+        if model == "CLIPEncoder":
+            self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        elif model == "ViTEncoder":
+            self.processor = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
+        else:
+            raise ValueError("Unknown model type. Use 'CLIPEncoder' or 'ViTEncoder'.")
+          
 
     def __len__(self):
         return len(self.dataset)
