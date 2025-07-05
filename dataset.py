@@ -11,15 +11,18 @@ import torch
 from wandb import config
 
 class Flickr30kDataset(torch.utils.data.Dataset):
-    def __init__(self, max_length=50, model="None"):
+    # def __init__(self, max_length=50, model="None"): # No one use max_length? Delete after confirmed
+    def __init__(self, model="None", flatten_captions=False):
 
         # Debug
         print(f"Clement model: {model}")
 
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-        self.max_length = max_length  # Adjust as needed
+        #self.max_length = max_length  # No one use this? Delete after confirmed
         # Load from cache if exists, else download
         self.dataset = load_dataset("nlphuji/flickr30k", split="test")
+        self.flatten_captions = flatten_captions
+        self.captions_per_image = 5  # Number of captions per image in Flickr30k
 
         if model == "CLIPEncoder":
             self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -30,10 +33,21 @@ class Flickr30kDataset(torch.utils.data.Dataset):
           
 
     def __len__(self):
-        return len(self.dataset)
+        if self.flatten_captions:
+            return len(self.dataset) * self.captions_per_image
+        else:
+            return len(self.dataset)
 
     def __getitem__(self, idx):
-        example = self.dataset[idx]
+        if self.flatten_captions:
+            # Calculate the actual index in the dataset
+            actual_idx = idx // self.captions_per_image
+            caption_idx = idx % self.captions_per_image
+        else:
+            actual_idx = idx
+            caption_idx = 0 # Default to the first caption if not flattening            
+
+        example = self.dataset[actual_idx]
 
         # Load image
         image = example['image'].convert('RGB')
@@ -44,7 +58,7 @@ class Flickr30kDataset(torch.utils.data.Dataset):
         # Tokenize caption
         caption = example['caption']
         if isinstance(caption, list):   # If there are multiple captions, choose one
-            caption = caption[0]  # or random.choice(caption)
+            caption = caption[caption_idx]  # or random.choice(caption)
         tokens = self.tokenizer(
             caption,
             padding="max_length",

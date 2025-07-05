@@ -33,7 +33,7 @@ def trainFull():
 
     wandb.init(
         project="vit_captioning",  
-        name="baseline-run",       
+        name="VIT_UnFreeze-flattened-test",       
         config={
             "model": "ViTEncoder",  # ViTEncoder or CLIPEncoder
             "epochs": 5,
@@ -41,8 +41,9 @@ def trainFull():
             "max_length": 50,
             "learning_rate": 1e-4,
             "num_workers": 4,
-            "unfreeze_pct": 1, # Best practice: unfreeze encoder after 30% of epochs
-            "encoder_lr_pct": 0.1  # lower LR for encoder after unfreezing
+            "unfreeze_pct": 0.5, # Best practice: unfreeze encoder after 30% of epochs
+            "encoder_lr_pct": 0.1,  # lower LR for encoder after unfreezing
+            "flatten_captions": True  # Flatten captions for training
         }
     )
 
@@ -62,7 +63,8 @@ def trainFull():
     # ----------------------------
 
     # Values defined in wandb is used throughout the training
-    train_dataset = Flickr30kDataset( max_length=MAX_LENGTH, model=ENCODER_MODEL)
+    #train_dataset = Flickr30kDataset( max_length=MAX_LENGTH, model=ENCODER_MODEL)
+    train_dataset = Flickr30kDataset( model=ENCODER_MODEL, flatten_captions=config.flatten_captions)
 
     # Standard PyTorch DataLoader
     train_loader = DataLoader(
@@ -140,8 +142,7 @@ def trainFull():
             enumerate(train_loader),
             total=len(train_loader),
             desc=f"Epoch {epoch+1}",
-            bar_format='{desc} {percentage:3.0f}%|{bar:20}| {n_fmt}/{total_fmt}'
-        )
+            bar_format='{desc} {percentage:3.0f}%|{bar:20}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]')
 
         for batch_idx, (images, input_ids, attention_mask) in progress_bar:
             images = images.to(device)
