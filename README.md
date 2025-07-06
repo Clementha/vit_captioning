@@ -1,6 +1,6 @@
 # VIT_CAPTIONING
 
-**VIT Captioning** is an AI Model that can generates caption describing a picture.
+**VIT Captioning** is an AI Model that can generate caption describing a picture.
 
 The code uses 
  - "bert-base-uncased" as vocabuary and tokenizer
@@ -36,7 +36,7 @@ Save the file then start training with:
 ```sh
 $  python  train.py
 ```
-which will then generate a checkpoint (.pth) file.
+which will then generate a model checkpoint (.pth) file.
   
 
 ## To generate caption for a picture
@@ -45,7 +45,7 @@ Syntax is:
 
 ```sh
 $  python  generate.py  \
---checkpoint [pathname of ChecktpointFile]  \
+--checkpoint [pathname of model checktpointFile]  \
 --model [CLIPEncoder or  ViTEncoder]  \
 --image [pathname of  picture]
 ```
