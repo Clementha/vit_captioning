@@ -75,27 +75,32 @@ image = Image.open(args.image).convert("RGB")
 encoding = processor(images=image, return_tensors='pt')
 pixel_values = encoding['pixel_values'].to(device)
 
-# --------------------------------------------
-# 4️⃣ Pass through encoder -> decoder.generate()
-# --------------------------------------------
 with torch.no_grad():
+    # Example: Greedy
     encoder_outputs = encoder(pixel_values)
-    generated_ids = decoder.generate(
+    caption_ids = decoder.generate(
         encoder_outputs,
-        tokenizer,
-        max_length=32,            # Change as needed
-        sos_token_id=tokenizer.cls_token_id,  # [CLS] token for BERT
-        eos_token_id=tokenizer.sep_token_id   # [SEP] token for BERT
+        mode="greedy",
     )
+    caption_text = tokenizer.decode(caption_ids[0], skip_special_tokens=True)
+    print(f"Greedy-argmax (deterministic, factual): {caption_text}")
 
-# --------------------------------------------
-# 5️⃣ Decode tokens to text
-# --------------------------------------------
-generated_caption = decoder.generate(
-    encoder_outputs,
-    tokenizer,
-    max_length=32,
-    sos_token_id=tokenizer.cls_token_id,
-    eos_token_id=tokenizer.sep_token_id
-)
-print(f"Generated caption: {generated_caption}")
+
+    # Example: Top-k sampling
+    caption_ids = decoder.generate(
+        encoder_outputs,
+        mode="topk",
+        top_k=30
+    )
+    caption_text = tokenizer.decode(caption_ids[0], skip_special_tokens=True)
+    print(f"Top-k(diverse, creative): {caption_text}")
+
+    # Example: Top-p sampling
+    caption_ids = decoder.generate(
+        encoder_outputs,
+        mode="topp",
+        top_p=0.92
+    )
+    caption_text = tokenizer.decode(caption_ids[0], skip_special_tokens=True)
+    print(f"Top-p(diverse, human-like)): {caption_text}")
+
