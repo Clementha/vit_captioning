@@ -11,14 +11,13 @@ import torch
 from wandb import config
 
 class Flickr30kDataset(torch.utils.data.Dataset):
-    # def __init__(self, max_length=50, model="None"): # No one use max_length? Delete after confirmed
-    def __init__(self, model="None", flatten_captions=False):
+    def __init__(self, model="None", flatten_captions=False, max_token_length=50):
 
         # Debug
         print(f"Clement model: {model}")
 
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-        #self.max_length = max_length  # No one use this? Delete after confirmed
+        self.max_token_length = max_token_length
         # Load from cache if exists, else download
         self.dataset = load_dataset("nlphuji/flickr30k", split="test")
         self.flatten_captions = flatten_captions
@@ -63,7 +62,8 @@ class Flickr30kDataset(torch.utils.data.Dataset):
             caption,
             padding="max_length",
             truncation=True,
-            max_length=32,
+            max_length=self.max_token_length,
+            add_special_tokens=True,  # Add [CLS] and [SEP] tokens
             return_tensors="pt"
         )
         input_ids = tokens['input_ids'].squeeze(0)

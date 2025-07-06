@@ -33,16 +33,16 @@ def trainFull():
 
     wandb.init(
         project="vit_captioning",  
-        name="VIT_UnFreeze-flattened-test",       
+        name="VIT_UFreeze-flattened-50Tokens",       
         config={
-            "model": "ViTEncoder",  # ViTEncoder or CLIPEncoder
-            "epochs": 5,
+            "model": "ViTEncoder",  # ViTEncoder (note case!) or CLIPEncoder
+            "epochs": 40,
             "batch_size": 32,
-            "max_length": 50,
+            "max_token_length": 50,   
             "learning_rate": 1e-4,
             "num_workers": 4,
-            "unfreeze_pct": 0.5, # Best practice: unfreeze encoder after 30% of epochs
-            "encoder_lr_pct": 0.1,  # lower LR for encoder after unfreezing
+            "unfreeze_pct": 0.3, # 0.5 = halfway, 1 = no unfreeze
+            "encoder_lr_pct": 0.1,  # lower LR for encoder after unfreezing, 0.1 = 10% of decoder LR
             "flatten_captions": True  # Flatten captions for training
         }
     )
@@ -53,7 +53,7 @@ def trainFull():
     BATCH_SIZE = config.batch_size
     NUM_EPOCHS = config.epochs
     NUM_WORKERS = config.num_workers
-    MAX_LENGTH = config.max_length
+    MAX_TOKEN_LENGTH = config.max_token_length
     LEARNING_RATE = config.learning_rate
     ENCODER_LR = LEARNING_RATE * config.encoder_lr_pct  # Example: lower LR for encoder
     UNFREEZE_EPOCH = int(NUM_EPOCHS * config.unfreeze_pct)  
@@ -64,7 +64,7 @@ def trainFull():
 
     # Values defined in wandb is used throughout the training
     #train_dataset = Flickr30kDataset( max_length=MAX_LENGTH, model=ENCODER_MODEL)
-    train_dataset = Flickr30kDataset( model=ENCODER_MODEL, flatten_captions=config.flatten_captions)
+    train_dataset = Flickr30kDataset( model=ENCODER_MODEL, flatten_captions=config.flatten_captions, max_token_length=MAX_TOKEN_LENGTH)
 
     # Standard PyTorch DataLoader
     train_loader = DataLoader(
@@ -179,6 +179,12 @@ def trainFull():
             if batch_idx % 200 == 0:
                 logits = outputs[0]  # first sample in batch
                 pred_ids = logits.argmax(dim=-1).tolist()
+
+                try:
+                    eos_idx = pred_ids.index(tokenizer.sep_token_id)
+                    pred_ids = pred_ids[:eos_idx]
+                except ValueError:
+                    pass
                 generated_caption = tokenizer.decode(pred_ids, skip_special_tokens=True)
 
                 target_ids = input_ids[0].tolist()
