@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Image Captioning</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- ✅ Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md text-center">
+    <h1 class="text-2xl font-bold mb-4 text-gray-800">AI Image Captioning</h1>
+
+    <!-- Upload Form -->
+    <form id="uploadForm" class="space-y-4">
+      <input 
+        type="file" 
+        id="fileInput" 
+        accept="image/*" 
+        required
+        class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+      />
+
+      <!-- Live Image Preview -->
+      <div id="previewContainer" class="mt-4 hidden">
+        <img id="previewImage" src="#" alt="Preview" class="mx-auto max-h-64 rounded-md shadow" />
+      </div>
+
+      <button 
+        type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+      >
+        Generate Captions
+      </button>
+    </form>
+
+    <!-- Captions -->
+    <div id="result" class="mt-6 text-left hidden">
+      <h2 class="text-lg font-semibold mb-2 text-gray-700">Captions:</h2>
+      <p><strong>Factual (argmax):</strong> <span id="greedy" class="text-gray-800"></span></p>
+      <p><strong>Creative (top-k):</strong> <span id="topk" class="text-gray-800"></span></p>
+      <p><strong>Human like (top-p):</strong> <span id="topp" class="text-gray-800"></span></p>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const previewContainer = document.getElementById('previewContainer');
+    const previewImage = document.getElementById('previewImage');
+    const form = document.getElementById('uploadForm');
+    const result = document.getElementById('result');
+
+    // ✅ Live preview + clear old captions
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          previewImage.src = e.target.result;
+          previewContainer.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+
+        // Clear old captions
+        document.getElementById('greedy').innerText = "";
+        document.getElementById('topk').innerText = "";
+        document.getElementById('topp').innerText = "";
+        result.classList.add('hidden');
+
+      } else {
+        previewContainer.classList.add('hidden');
+      }
+    });
+
+    // ✅ Submit form
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/generate', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      document.getElementById('greedy').innerText = data.greedy || "N/A";
+      document.getElementById('topk').innerText = data.topk || "N/A";
+      document.getElementById('topp').innerText = data.topp || "N/A";
+      result.classList.remove('hidden');
+    });
+  </script>
+</body>
+</html>

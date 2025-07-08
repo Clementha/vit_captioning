@@ -4,3 +4,6 @@ artifacts/
 data/
 wandb/
 images/debug_image.jpg
+.ipynb_checkpoints/
+*.ipynb
+
