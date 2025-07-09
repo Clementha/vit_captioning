@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AI Image Captioning</title>
+  <title>🤖 Image 🖼️ Captioning</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- ✅ Tailwind CDN -->
@@ -39,9 +39,9 @@
     <!-- Captions -->
     <div id="result" class="mt-6 text-left hidden">
       <h2 class="text-lg font-semibold mb-2 text-gray-700">Captions:</h2>
-      <p><strong>Factual (argmax):</strong> <span id="greedy" class="text-gray-800"></span></p>
-      <p><strong>Creative (top-k):</strong> <span id="topk" class="text-gray-800"></span></p>
-      <p><strong>Human like (top-p):</strong> <span id="topp" class="text-gray-800"></span></p>
+      <p><strong>Factual 🤖:</strong> <span id="greedy" class="text-gray-800"></span></p>
+      <p><strong>Creative 🤪:</strong> <span id="topk" class="text-gray-800"></span></p>
+      <p><strong>Human like 🫀:</strong> <span id="topp" class="text-gray-800"></span></p>
     </div>
   </div>
 
@@ -93,5 +93,52 @@
       result.classList.remove('hidden');
     });
   </script>
+
+<!-- Floating Help Button -->
+<button id="helpButton"
+  class="fixed bottom-4 right-4 bg-blue-600 text-white rounded-full w-12 h-12 text-2xl font-bold shadow-lg hover:bg-blue-700 transition">
+  ?
+</button>
+
+<!-- Help Modal -->
+<div id="helpModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+  <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg text-left">
+    <h2 class="text-xl font-semibold mb-4">🤖 Image Captioning</h2>
+    <p class="text-gray-700 mb-4">
+      Please upload a picture / image and press "Generate Captions", the model will generate captions for it. 
+      The model uses google/vit-base-patch16-224-in21k or openai/clip-vit-base-patch32
+      as image encoder, trained together with a customer transformer decoder to generate captions.<br>
+      The available caption styles are: "Factual 🤖", "Creative 🤪", and "Human like 🫀", 
+      which are actually argmax (greedy), top-K and top-P respectively.
+
+    </p>
+    <button id="closeModal"
+      class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+      Close
+    </button>
+  </div>
+</div>
+
+<script>
+  const helpButton = document.getElementById('helpButton');
+  const helpModal = document.getElementById('helpModal');
+  const closeModal = document.getElementById('closeModal');
+
+  helpButton.addEventListener('click', () => {
+    helpModal.classList.remove('hidden');
+  });
+
+  closeModal.addEventListener('click', () => {
+    helpModal.classList.add('hidden');
+  });
+
+  // Optional: close modal when clicking outside the modal box
+  helpModal.addEventListener('click', (e) => {
+    if (e.target === helpModal) {
+      helpModal.classList.add('hidden');
+    }
+  });
+</script>
+
 </body>
 </html>

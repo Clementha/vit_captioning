@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Clement's AI Lab</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="max-w-md w-full p-6 text-center">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">🚀 Clement's AI Lab</h1>
+    <div class="space-y-4">
+      <a href="/captioning" class="block w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg shadow text-lg font-semibold">
+        🖼️ Image Captioning
+      </a>
+      <a href="/project2" class="block w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg shadow text-lg font-semibold">
+        🤖 Coming Soon: Word calculator
+      </a>
+      <!-- Add more project links here -->
+    </div>
+  </div>
+
+<!-- Floating Help Button -->
+<button id="helpButton"
+  class="fixed bottom-4 right-4 bg-blue-600 text-white rounded-full w-12 h-12 text-2xl font-bold shadow-lg hover:bg-blue-700 transition">
+  ?
+</button>
+
+<!-- Help Modal -->
+<div id="helpModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+  <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg text-left">
+    <h2 class="text-xl font-semibold mb-4">Clement's AI Lab</h2>
+    <p class="text-gray-700 mb-4">
+      Welcome! I'm Clement, and I've built these interactive models for you to experiment with. Whether you're curious about AI or just want to have some fun, there's something here for everyone.<!-- Page-specific explanation goes here -->
+    </p>
+    <button id="closeModal"
+      class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+      Close
+    </button>
+  </div>
+</div>
+
+<script>
+  const helpButton = document.getElementById('helpButton');
+  const helpModal = document.getElementById('helpModal');
+  const closeModal = document.getElementById('closeModal');
+
+  helpButton.addEventListener('click', () => {
+    helpModal.classList.remove('hidden');
+  });
+
+  closeModal.addEventListener('click', () => {
+    helpModal.classList.add('hidden');
+  });
+
+  // Optional: close modal when clicking outside the modal box
+  helpModal.addEventListener('click', (e) => {
+    if (e.target === helpModal) {
+      helpModal.classList.add('hidden');
+    }
+  });
+</script>
+
+</body>
+</html>
