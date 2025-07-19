@@ -10,7 +10,8 @@ import argparse
 
 
 class CaptionGenerator:
-    def __init__(self, model_type: str, checkpoint_path: str):
+    def __init__(self, model_type: str, checkpoint_path: str, quantized=False):
+        print(f"Loading {model_type} | Quantized: {quantized}")
         # Setup device
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
@@ -36,6 +37,14 @@ class CaptionGenerator:
             self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
         else:
             raise ValueError("Unknown model type")
+
+        if quantized:
+            print("Applying dynamic quantization to encoder...")
+            self.encoder = torch.ao.quantization.quantize_dynamic(
+                self.encoder,
+                {torch.nn.Linear},
+                dtype=torch.qint8
+            )
 
         # Initialize decoder
         self.decoder = TransformerDecoder(
@@ -86,6 +95,12 @@ if __name__ == "__main__":
                         help="Path to the .pth checkpoint file")
     parser.add_argument("--image", type=str, required=True,
                         help="Path to input image file")
+    parser.add_argument(
+        "--quantized",
+        action="store_true",
+        help="Load encoder with dynamic quantization"
+    )  ### ✅ ADDED
+
     args = parser.parse_args()
 
     generator = CaptionGenerator(

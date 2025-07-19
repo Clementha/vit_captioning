@@ -47,11 +47,12 @@ Syntax is:
 $  python  generate.py  \
 --checkpoint [pathname of model checktpointFile]  \
 --model [CLIPEncoder or  ViTEncoder]  \
---image [pathname of  picture]
+--image [pathname of  picture] \
+--quantized [True|False]
 ```
 
 Example:
 
 ```sh
-$  python  generate.py  --checkpoint  ./artifacts/CLIPEncoder_40epochs_unfreeze12.pth  --model  CLIPEncoder  --image  ./images/girl.png
+$  python  generate.py  --checkpoint  ./artifacts/CLIPEncoder_40epochs_unfreeze12.pth  --model  CLIPEncoder  --image  ./images/girl.png --quantized False
 ```

@@ -32,7 +32,8 @@ async def project2():
 # Keep the path consistent with your JS fetch()!
 caption_generator = CaptionGenerator(
     model_type="CLIPEncoder",
-    checkpoint_path="./artifacts/CLIPEncoder_40epochs_unfreeze12.pth"
+    checkpoint_path="./artifacts/CLIPEncoder_40epochs_unfreeze12.pth",
+    quantized=True
 )
 
 @app.post("/generate")
