@@ -33,7 +33,7 @@ async def project2():
 caption_generator = CaptionGenerator(
     model_type="CLIPEncoder",
     checkpoint_path="./artifacts/CLIPEncoder_40epochs_unfreeze12.pth",
-    quantized=True
+    quantized=False
 )
 
 @app.post("/generate")
